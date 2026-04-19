@@ -1,6 +1,18 @@
 const { ensureSchema, listDailyChats } = require("../../lib/db");
 const { buildDailyPack, formatDailyPackMessages } = require("../../lib/daily");
-const { sendMessage } = require("../../lib/telegram");
+const { sendMessage, sendPhoto } = require("../../lib/telegram");
+const { runScheduledCurrentAffair } = require("../../lib/current-affairs");
+
+async function sendDailyPack(chatId) {
+  const pack = await buildDailyPack(chatId);
+  for (const item of formatDailyPackMessages(pack)) {
+    if (item.type === "photo") {
+      await sendPhoto(chatId, item.photoUrl, item.caption);
+    } else {
+      await sendMessage(chatId, item.text);
+    }
+  }
+}
 
 module.exports = async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -13,16 +25,22 @@ module.exports = async function handler(req, res) {
   const results = [];
 
   for (const chat of chats) {
+    const row = { chatId: chat.chat_id };
     try {
-      const pack = await buildDailyPack(chat.chat_id);
-      for (const message of formatDailyPackMessages(pack)) {
-        await sendMessage(chat.chat_id, message);
-      }
-      results.push({ chatId: chat.chat_id, status: "sent" });
+      await sendDailyPack(chat.chat_id);
+      row.dailyPack = "sent";
     } catch (error) {
-      console.error(`daily-send-failed:${chat.chat_id}`, error);
-      results.push({ chatId: chat.chat_id, status: "failed", reason: error.message });
+      row.dailyPack = `failed: ${error.message}`;
     }
+
+    try {
+      const currentAffairResult = await runScheduledCurrentAffair(chat.chat_id);
+      row.currentAffairs = currentAffairResult.status;
+    } catch (error) {
+      row.currentAffairs = `failed: ${error.message}`;
+    }
+
+    results.push(row);
   }
 
   res.status(200).json({ ok: true, count: chats.length, results });

@@ -1,7 +1,8 @@
 const { ensureSchema, upsertChat, getOpenPracticeSession, closePracticeSession } = require("../lib/db");
-const { sendMessage } = require("../lib/telegram");
+const { sendMessage, sendPhoto } = require("../lib/telegram");
 const { buildDailyPack, formatDailyPackMessages } = require("../lib/daily");
 const { createPracticePrompt, evaluatePracticeReply, getPracticeHelpText } = require("../lib/practice");
+const { runManualCurrentAffair } = require("../lib/current-affairs");
 
 function getMessageText(update) {
   return (
@@ -29,16 +30,30 @@ function normalizeBody(body) {
   return body;
 }
 
+function getCommandParts(text) {
+  return text.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
 function parsePracticeType(text) {
-  const lowered = text.trim().toLowerCase();
-  const parts = lowered.split(/\s+/);
-  if (parts[0].split("@")[0] !== "/practice") return null;
+  const parts = getCommandParts(text);
+  if (parts[0]?.split("@")[0] !== "/practice") return null;
   return parts[1] || null;
 }
 
+async function sendDailyPack(chatId) {
+  const pack = await buildDailyPack(chatId);
+  for (const item of formatDailyPackMessages(pack)) {
+    if (item.type === "photo") {
+      await sendPhoto(chatId, item.photoUrl, item.caption);
+    } else {
+      await sendMessage(chatId, item.text);
+    }
+  }
+}
+
 async function handleCommand(chatId, commandText) {
-  const lowered = commandText.trim().toLowerCase();
-  const normalizedCommand = lowered.split(/\s+/)[0].split("@")[0];
+  const parts = getCommandParts(commandText);
+  const normalizedCommand = (parts[0] || "").split("@")[0];
 
   if (normalizedCommand === "/start") {
     await sendMessage(
@@ -46,6 +61,7 @@ async function handleCommand(chatId, commandText) {
       [
         "SSB Coach is active.",
         "Use /registerdaily to receive the daily pack.",
+        "Use /today_current_affair for the latest current-affairs digest.",
         "Use /practice vocab, /practice wat, /practice tat, /practice srt, or /practice ppdt to start answer evaluation.",
         "Use /help to see all commands."
       ].join("\n")
@@ -65,16 +81,22 @@ async function handleCommand(chatId, commandText) {
   }
 
   if (normalizedCommand === "/unregisterdaily") {
+    if (!process.env.ADMIN_SECRET || parts[1] !== process.env.ADMIN_SECRET.toLowerCase()) {
+      await sendMessage(chatId, "Unknown command. Use /help to see the available commands.");
+      return;
+    }
     await upsertChat({ id: chatId, dailyEnabled: false });
     await sendMessage(chatId, "Daily delivery is disabled for this chat.");
     return;
   }
 
   if (normalizedCommand === "/sendtoday") {
-    const pack = await buildDailyPack(chatId);
-    for (const message of formatDailyPackMessages(pack)) {
-      await sendMessage(chatId, message);
-    }
+    await sendDailyPack(chatId);
+    return;
+  }
+
+  if (normalizedCommand === "/today_current_affair") {
+    await runManualCurrentAffair(chatId);
     return;
   }
 
@@ -96,7 +118,7 @@ async function handleCommand(chatId, commandText) {
     return;
   }
 
-  const practiceType = parsePracticeType(lowered);
+  const practiceType = parsePracticeType(commandText);
   if (practiceType) {
     const openSession = await getOpenPracticeSession(chatId);
     if (openSession) {

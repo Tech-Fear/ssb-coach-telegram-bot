@@ -6,12 +6,13 @@
   "main": "api/telegram.js",
   "scripts": {
     "dev": "vercel dev",
-    "check": "node -e \"require('./lib/content'); require('./lib/practice'); require('./lib/daily'); console.log('ok')\""
+    "check": "node -e \"require('./lib/content'); require('./lib/practice'); require('./lib/daily'); require('./lib/current-affairs'); console.log('ok')\""
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4"
+    "@neondatabase/serverless": "^0.10.4",
+    "fast-xml-parser": "^4.5.3"
   }
 }

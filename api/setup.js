@@ -22,8 +22,8 @@ module.exports = async function handler(req, res) {
     { command: "start", description: "Start the bot" },
     { command: "help", description: "Show all commands" },
     { command: "registerdaily", description: "Enable daily SSB pack" },
-    { command: "unregisterdaily", description: "Disable daily SSB pack" },
     { command: "sendtoday", description: "Send today's pack now" },
+    { command: "today_current_affair", description: "Get current-affairs digest" },
     { command: "skip", description: "Skip current practice prompt" }
   ]);
 
