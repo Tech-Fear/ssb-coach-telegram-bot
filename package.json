@@ -1,0 +1,17 @@
+{
+  "name": "ssb-telegram-vercel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram SSB coach bot for Vercel + Neon",
+  "main": "api/telegram.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "check": "node -e \"require('./lib/content'); require('./lib/practice'); require('./lib/daily'); console.log('ok')\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  }
+}
