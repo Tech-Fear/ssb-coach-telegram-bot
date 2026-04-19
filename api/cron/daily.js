@@ -1,13 +1,13 @@
 const { ensureSchema, listDailyChats } = require("../../lib/db");
 const { buildDailyPack, formatDailyPackMessages } = require("../../lib/daily");
-const { sendMessage, sendPhoto } = require("../../lib/telegram");
+const { sendMessage, sendPhotoWithFallback } = require("../../lib/telegram");
 const { runScheduledCurrentAffair } = require("../../lib/current-affairs");
 
 async function sendDailyPack(chatId) {
   const pack = await buildDailyPack(chatId);
   for (const item of formatDailyPackMessages(pack)) {
     if (item.type === "photo") {
-      await sendPhoto(chatId, item.photoUrl, item.caption);
+      await sendPhotoWithFallback(chatId, item.photoCandidates, item.caption);
     } else {
       await sendMessage(chatId, item.text);
     }

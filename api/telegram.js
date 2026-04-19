@@ -1,5 +1,5 @@
 const { ensureSchema, upsertChat, getOpenPracticeSession, closePracticeSession } = require("../lib/db");
-const { sendMessage, sendPhoto } = require("../lib/telegram");
+const { sendMessage, sendPhotoWithFallback } = require("../lib/telegram");
 const { buildDailyPack, formatDailyPackMessages } = require("../lib/daily");
 const { createPracticePrompt, evaluatePracticeReply, getPracticeHelpText } = require("../lib/practice");
 const { runManualCurrentAffair } = require("../lib/current-affairs");
@@ -44,7 +44,7 @@ async function sendDailyPack(chatId) {
   const pack = await buildDailyPack(chatId);
   for (const item of formatDailyPackMessages(pack)) {
     if (item.type === "photo") {
-      await sendPhoto(chatId, item.photoUrl, item.caption);
+      await sendPhotoWithFallback(chatId, item.photoCandidates, item.caption);
     } else {
       await sendMessage(chatId, item.text);
     }
@@ -126,7 +126,15 @@ async function handleCommand(chatId, commandText) {
       return;
     }
     const prompt = await createPracticePrompt(chatId, practiceType);
-    await sendMessage(chatId, prompt.message);
+    if (prompt.type === "photo") {
+      try {
+        await sendPhotoWithFallback(chatId, prompt.photoCandidates, prompt.caption);
+      } catch {
+        await sendMessage(chatId, prompt.textFallback || prompt.caption);
+      }
+    } else {
+      await sendMessage(chatId, prompt.text);
+    }
     return;
   }
 
